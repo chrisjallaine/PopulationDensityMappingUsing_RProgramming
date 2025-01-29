@@ -1,0 +1,655 @@
+---
+title: |
+  | DS221
+  | Data Visualization and Storytelling
+subtitle: |
+  | --------------------------------------------------
+  | PORTFOLIO 1
+  | --------------------------------------------------
+output: 
+  pdf_document: 
+    keep_tex: true
+header-includes:
+  - "\\usepackage{titling}"
+  - "\\pretitle{\\begin{center}\\LARGE\\includegraphics[width=4cm]{logo.jpg}\\\\[\\bigskipamount]}"
+  - "\\posttitle{\\end{center}}"
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: console
+---
+
+```{r, include=FALSE}
+# Set CRAN mirror
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+```
+
+# How to Create a 3D Population Density Map in R
+
+### **1. Installing Required Packages**:
+
+```{r eval=FALSE, include=FALSE}
+install.packages("sf", dependencies=TRUE) 
+install.packages("tmap", dependencies=TRUE) 
+install.packages("mapview", dependencies=TRUE)
+install.packages("stars", dependencies=TRUE)
+install.packages("rayshader", dependencies=TRUE)
+install.packages("MetBrewer", dependencies=TRUE)
+install.packages("rayrender")
+install.packages("extrafont", dependencies=TRUE)
+install.packages("magick", dependencies=TRUE)
+install.packages("plotly", dependencies = TRUE)
+install.packages("showtext")
+```
+
+**install.packages("sf", dependencies=TRUE):**
+
+This line installs the '*sf*' package, which is crucial for working with
+spatial data. It provides functions and tools for reading, writing, and
+manipulating spatial data formats.
+
+**install.packages("tmap", dependencies=TRUE):**
+
+This line installs the '*tmap*' package, which is used for creating
+thematic maps. It offers a simple and intuitive interface for
+visualizing spatial data and creating informative maps.
+
+**install.packages("mapview", dependencies=TRUE)**:
+
+This line installs the '*mapview*' package, which provides interactive
+viewing of spatial data. It allows us to explore our spatial data
+interactively, making it easier to understand and analyze.
+
+**install.packages("stars", dependencies=TRUE)**:
+
+This line installs the '*stars*' package, which is used for
+*spatiotemporal* data manipulation and analysis. It provides functions
+for handling raster and vector data, as well as tools for visualization
+and analysis.
+
+**install.packages("rayshader", dependencies=TRUE):**
+
+This line installs the '*rayshader*' package, which is used for creating
+3D visualizations of spatial data. It allows us to generate a realistic
+3D terrain map and visualize spatial data in a unique and immersive way.
+
+**install.packages("MetBrewer", dependencies=TRUE**):
+
+This line installs the '*MetBrewer*' package, which provides color
+palettes for our thematic mapping. It offers a variety of color schemes
+optimized for visualizing meteorological data, making our map more
+informative and visually appealing.
+
+**install.packages("rayrender"**):
+
+This line installs the '*rayrender*' package, which is used for creating
+high-quality 3D renderings. It will provide functions for generating
+photorealistic images and animations, allowing us to visualize spatial
+data in a realistic and visually stunning way.
+
+**install.packages("extrafont", dependencies=TRUE):**
+
+This line installs the '*extrafont*' package, which is used for
+importing and managing additional fonts. It allows us to use a wide
+range of fonts in our plots and graphics, enhancing their visual appeal
+and readability.
+
+**install.packages("magick", dependencies=TRUE):** This line installs
+the '*magick*' package, which is used for working with images . It
+provides functions for reading, writing, and manipulating images, as
+well as tools for creating animations and visual effects.
+
+**install.packages("plotly", dependencies = TRUE):** This line installs
+the '*plotly*' package, which is used for creating interactive plots and
+graphics. It allows us to create interactive visualizations with
+features such as zooming, panning, and hovering, making it easier to
+explore and understand your data.
+
+These packages are essential for various aspects of spatial data
+analysis, visualization, and graphical representation in R. By
+installing them, we gain access to a wide range of tools and functions
+that streamline our workflow and enhance the quality of our work.
+
+### **2. Load Packages and Set Options**:
+
+Load the required libraries and set the RGL options:
+
+```{r}
+# Set option to use rgl graphics device
+options(rgl.useNULL = FALSE)
+
+# Load required packages for data manipulation and visualization
+# Load the tidyverse package, which includes many useful packages for data manipulation and visualization
+require(tidyverse)
+
+# Load the sf package for working with spatial data
+require(sf)
+
+# Load the tmap package for creating thematic maps
+require(tmap)
+
+# Load the ggplot2 package for creating versatile plots
+require(ggplot2)
+
+# Load the mapview package for interactive viewing of spatial data
+require(mapview)
+
+# Load the stars package for spatiotemporal data manipulation and analysis
+require(stars)
+
+# Load the rayshader package for creating 3D visualizations
+require(rayshader)
+
+# Load the MetBrewer package for color palettes optimized for thematic mapping
+require(MetBrewer)
+
+# Load the colorspace package for manipulating and selecting colors
+require(colorspace)
+
+# Load the rayrender package for creating high-quality 3D renderings
+require(rayrender)
+
+# Load the magick package for working with images
+require(magick)
+
+# Load the extrafont package for importing and managing additional fonts in plots
+require(extrafont)
+
+# Importing the plotly library for creating interactive plots
+require(plotly)
+```
+
+Notice that **require()** was used for this. R then checks if the
+packages are installed already.It is the preferred method for loading
+packages in R due to its automatic installation, error handling,
+namespace management, conditional loading capabilities, and simplicity.
+It ensures that your code runs smoothly and reliably, even when working
+with multiple packages and dependencies.
+
+### **3. Load and Transform Data**:
+
+You'll need to load the population data and administrative boundaries
+for the chosen country (*with this work, the country is Cambodia*),
+transforming them into a suitable coordinate system. The data is
+downloaded from [**Kontur Population.**]{.underline}
+
+```{r}
+# Read population data for Cambodia from a GeoPackage file and transform it to a specific CRS
+Cambodia_hex <- st_read("kontur_KHpopulation_KH_20231101.gpkg") %>% st_transform(3106)
+
+# Read administrative boundaries data for Cambodia from a GeoPackage file and transform it to a specific CRS
+Cambodia_admin <- st_read("kontur_KHboundaries_KH_20230628.gpkg") %>% st_transform(3106)
+```
+
+#### **4. Check and Create Boundaries**:
+
+Here we've inspect the 'name_en' column and create the boundary for
+Cambodia.
+
+```{r}
+# Extract distinct values of a specific attribute from an 'sf' object
+# Extract distinct values of the 'name_en' attribute (administrative region names in English) from the Cambodia_admin object
+distinct_names <- Cambodia_admin %>% distinct(name_en)
+
+# Print the distinct names to the console
+print(distinct_names)
+```
+
+***distinct_names:*** This is the name given to the resulting data frame
+containing the distinct names extracted from the 'name_en' attribute of
+the *Cambodia_admin* object.
+
+By using these lines of code, we're extracting distinct administrative
+region names in English from the Cambodia_admin object and printing them
+to the console. This can be useful for exploring the unique values
+present in the 'name_en' attribute and understanding the data better.
+
+```{r}
+# Creating Cambodia Boundary
+
+# Extract the geometries (shapes) from the Cambodia_admin object
+# Merge (union) all geometries into a single geometry representing the boundary of Cambodia
+# Convert the merged geometry into an 'sf' object
+# Ensure that the geometry is valid (i.e., without self-intersections or other topological errors)
+
+Cambodia_boundary <- Cambodia_admin %>%
+  st_geometry() %>%
+  st_union() %>%
+  st_sf() %>%
+  st_make_valid()
+```
+
+**Explanation**:
+
+**st_geometry()**: This function extracts the geometries (shapes) from
+the 'sf' object Cambodia_admin It ensures that we are working with the
+geometries themselves, rather than the entire data frame.
+
+**st_union()**: This function merges (unions) all geometries into a
+single geometry representing the boundary of Cambodia It effectively
+creates a single polygon that encompasses all the individual polygons in
+the Cambodia_admin object.
+
+**st_sf()**: This function converts the merged geometry into an 'sf'
+object. It ensures that the resulting object retains the spatial
+attributes and metadata associated with the original object.
+
+**st_make_valid():** This function ensures that the geometry is valid by
+fixing any self-intersections or other topological errors. It returns a
+valid geometry, which is important for subsequent spatial operations and
+analyses.
+
+**Cambodia_boundary:** This is the name given to the resulting 'sf'
+object representing the boundary of Cambodia It contains a single
+polygon geometry that encompasses all the administrative boundaries
+present in the Cambodia_admin object.
+
+By using these lines of code, we're creating a boundary for Cambodia by
+merging all the administrative boundaries present in the Cambodia_admin
+object into a single polygon. This boundary can then be used for various
+spatial analyses and visualizations.
+
+#### **5. Plot Boundaries for Verification**:
+
+Visualize the hex data and boundaries to ensure accuracy.
+
+```{r}
+names(Cambodia_hex)
+```
+
+```{r}
+require(plotly)
+
+# Create the ggplot object
+# This line initializes a ggplot object, which serves as a canvas for plotting.
+# It starts with plotting the spatial data stored in the Cambodia_hex object.
+
+p <- ggplot(Cambodia_hex) + 
+  # Add polygons representing population data to the plot
+  geom_sf(aes(fill = population), color = "gray66", linewidth = 1) + 
+  # Add the boundary of Cambodia as a separate layer without fill
+  geom_sf(data = Cambodia_boundary, fill = NA, color = "black")
+
+# Convert ggplot object to a plotly object
+# This line converts the ggplot object 'p' into an interactive plotly object.
+# The 'tooltip' argument specifies that the 'population' attribute will be displayed when hovering over data points.
+
+p <- ggplotly(p, tooltip = c("population"))
+
+# Print the plotly object
+# This line prints the interactive plotly object to the console or the viewer pane, allowing for interactive exploration.
+
+print(p)
+```
+
+Explanation:
+
+In this work, we made sure to install the ***plotly*** package to enable
+interactive plotting capabilities. Then, we created a ggplot object as
+our base canvas for plotting. We started by plotting the spatial data
+stored in the *Cambodia_hex* object, adding polygons representing
+population data to the plot, and including the boundary of Cambodia as a
+separate layer without fill. After that, we converted the ggplot object
+'p' into an interactive plotly object. We specified that the
+'[*population*]{.underline}' attribute will be displayed when hovering
+over data points. Finally, we printed the interactive plotly object 'p'
+to the console or the viewer pane, allowing for interactive exploration
+and sharing with others in our team.
+
+#### **6. Calculate Aspect Ratio**:
+
+Determine the aspect ratio for the map based on the bounding box of the
+boundary.
+
+```{r}
+# Setting the bounding box of the plot to match the boundary of Cambodia
+# We calculate the bounding box using the st_bbox() function, which returns the minimum and maximum coordinates of the Cambodia_boundary object.
+bbox <- st_bbox(Cambodia_boundary)
+
+# Finding the aspect ratio of the plot
+# We create four points at the corners of the bounding box to calculate the width and height.
+# Each point represents a corner of the bounding box: bottom-left, bottom-right, top-left, and top-right.
+# We ensure that each point is in the same coordinate reference system (CRS) as the boundary data.
+bottom_left <- st_point(c(bbox[["xmin"]], bbox[["ymin"]])) %>%
+  st_sfc(crs = 3106)
+bottom_right <- st_point(c(bbox[["xmax"]], bbox[["ymin"]])) %>%
+  st_sfc(crs = 3106)
+top_left <- st_point(c(bbox[["xmin"]], bbox[["ymax"]])) %>%
+  st_sfc(crs = 3106)
+top_right <- st_point(c(bbox[["xmax"]], bbox[["ymax"]])) %>%
+  st_sfc(crs = 3106)
+
+# Calculate the width and height of the plot using the distances between the corner points.
+width <- st_distance(bottom_left, bottom_right)
+height <- st_distance(bottom_left, top_left)
+
+# Determine the aspect ratio of the plot based on the width and height.
+# If the width is greater than the height, we set the width ratio to 1 and calculate the height ratio.
+# Otherwise, we set the height ratio to 1 and calculate the width ratio.
+if (width > height) {
+  w_ratio = 1
+  h_ratio = height / width
+} else {
+  h_ratio = 1.1
+  w_ratio = width / height
+}
+```
+
+**Explanation:**
+
+Setting the bounding box: We use the st_bbox() function to calculate the
+bounding box of the Cambodia_boundary object. This bounding box defines
+the extent of the plot.
+
+Finding the aspect ratio: We create four points at the corners of the
+bounding box to calculate the width and height of the plot. Each point
+represents a corner of the bounding box: bottom-left, bottom-right,
+top-left, and top-right. We ensure that each point is in the same
+coordinate reference system (CRS) as the boundary data.
+
+Calculating width and height: We calculate the distances between the
+corner points to determine the width and height of the plot.
+
+Determining aspect ratio: Based on the width and height, we determine
+the aspect ratio of the plot. If the width is greater than the height,
+we set the width ratio to 1 and calculate the height ratio accordingly.
+Otherwise, we set the height ratio to 1.1 (arbitrarily chosen for better
+visualization) and calculate the width ratio accordingly.
+
+#### 7. **Rasterize Population Data**:
+
+```{r}
+# Convert spatial polygons to raster format, then convert to matrix
+# We determine the size of the output raster by multiplying the desired size by the width and height ratios.
+# This ensures that the raster has the correct aspect ratio to match the plot.
+size = 1000 * 3.5
+
+# Convert spatial polygons to raster format
+# We use the st_rasterize() function to rasterize the Cambodia_hex polygons.
+# The 'nx' and 'ny' arguments determine the number of cells in the x and y dimensions of the raster.
+# We calculate these values based on the desired size of the raster and the width and height ratios calculated earlier.
+pop_raster <- st_rasterize(
+  Cambodia_hex,
+  nx = floor(size * w_ratio) %>% as.numeric(),
+  ny = floor(size * h_ratio) %>% as.numeric()
+)
+
+# Convert raster to matrix
+# We extract the 'population' values from the raster and arrange them into a matrix.
+# The 'nrow' and 'ncol' arguments specify the number of rows and columns of the matrix, based on the size and aspect ratio of the raster.
+pop_matrix <- matrix(pop_raster$population,
+                     nrow = floor(size * w_ratio),
+                     ncol = floor(size * h_ratio))
+
+```
+
+#### **8. Define Color Palette**:
+
+```{r}
+# Create color palette from the MetBrewer library
+# We use the met.brewer() function from the MetBrewer package to generate a color palette named "Peru2".
+# This palette is designed specifically for thematic mapping and provides a range of colors suitable for visualizing spatial data.
+color <- MetBrewer::met.brewer(name="OKeeffe1", direction = -1)
+
+# Generate color gradients from the color palette
+# We use the colorRampPalette() function from the grDevices package to generate a smooth color gradient from the specified color palette.
+# The 'bias' parameter adjusts the color gradient by emphasizing certain colors in the palette.
+# We generate 256 colors to ensure a smooth transition between colors in the gradient.
+tx <- grDevices::colorRampPalette(color, bias = 4.5)(256)
+
+# Display color swatches for the generated colors
+# We use the swatchplot() function from the MetBrewer package to visualize the color palette.
+# This function displays a grid of color swatches representing the colors in the palette.
+swatchplot(tx)
+
+# Display color swatches for the original palette
+# We also display color swatches for the original palette obtained from the MetBrewer library.
+# This allows us to compare the generated color gradient with the original palette.
+swatchplot(color)
+
+```
+
+#### **9. Render 3D Map**:
+
+Use Rayshader to create a 3D representation of the population density.
+
+```{r}
+# Close any existing 3D plot before plotting another
+# We make sure to close any existing 3D plot to start with a clean slate.
+rgl::close3d()
+
+# Apply height shading to the population matrix using the provided texture
+# We apply height shading to enhance the visual depth of the population matrix, making terrain features more pronounced.
+# The 'texture' argument specifies the color palette (tx) to be applied to the height shading.
+pop_matrix %>%
+  height_shade(texture = tx) %>%
+
+# Plot the 3D visualization of the population matrix
+# We create a 3D plot of the population matrix using the plot_3d() function.
+# Adjusting 'zscale', 'solid', and 'shadowdepth' will affect the appearance of the plot.
+# Higher 'zscale' values exaggerate the vertical relief, while lower values flatten it.
+# Setting 'solid' to FALSE creates a wireframe representation, allowing us to see through the surface.
+# Adjusting 'shadowdepth' changes the intensity of shadows cast by objects in the plot.
+plot_3d(heightmap = pop_matrix,
+          zscale = 250 / 4.5,   # Higher zscale exaggerates vertical relief 100/2 or 200/6
+          solid = FALSE,        # Wireframe representation allows seeing through the surface
+          shadowdepth = 0.8    # Adjusts intensity of shadows cast by objects
+          )
+
+# Adjust the camera angle for better visualization
+# We adjust the camera angle to optimize the viewing perspective of the 3D plot.
+# 'theta' controls the horizontal viewing angle, 'phi' controls the vertical viewing angle, and 'zoom' adjusts the distance between the camera and the plot.
+render_camera(theta = 0,      # Adjusts horizontal viewing angle
+              phi = 70,       # Adjusts vertical viewing angle
+              zoom = 0.8)     # Controls distance between camera and plot
+
+
+# To interactively view the 3D plot
+# We generate an interactive widget to allow team members to explore the 3D plot interactively.
+# This enables features such as rotation, zooming, and panning for a more immersive experience.
+rgl::rglwidget()
+```
+
+#### Explanation:
+
+**theta**: The 'theta' parameter of the render_camera() function
+controls the rotation around the vertical axis, allowing us to adjust
+the horizontal viewing angle. A value of 0 would position the camera
+facing directly towards the positive x-axis, with positive values
+rotating the camera clockwise and negative values rotating it
+counterclockwise.
+
+**phi**: The 'phi' parameter controls the elevation angle, allowing us
+to adjust the vertical viewing angle. A value of 0 would position the
+camera parallel to the xy-plane, looking straight down, with positive
+values tilting the camera upwards and negative values tilting it
+downwards.
+
+**zoom**: The 'zoom' parameter controls the distance between the camera
+and the plot. A value greater than 1 would zoom in, bringing the plot
+closer to the camera, while a value less than 1 would zoom out, moving
+the plot away from the camera. We set it into one for a balance look.
+
+**zscale**: The 'zscale' parameter of the plot_3d() function adjusts the
+scaling factor for the z-axis, determining the vertical exaggeration of
+the plot. A higher value would exaggerate the vertical relief, while a
+lower value would flatten it. We set it into 25 that is 200 / 8.
+
+**solid**: The 'solid' parameter of the plot_3d() function controls
+whether the surface should be plotted as a solid (filled) object or as a
+wireframe (empty). Setting it to FALSE results in a wireframe
+representation, allowing us to see through the surface to the underlying
+structure.
+
+**shadowdepth:** The 'shadowdepth' parameter of the plot_3d() function
+controls the intensity of shadows cast by the objects in the plot. A
+higher value results in deeper and darker shadows, while a lower value
+softens the shadows. In this work, we set it into 0.8 for a softer
+shadow.
+
+#### **10. Render in high-quality and Save Image**:
+
+Fine-tune the camera angle and render a high-quality image of the 3D
+map.
+
+```{r}
+outfile <- glue::glue("KH_final_4.png")
+
+{
+  start_time <- Sys.time()
+  cat(crayon::cyan(start_time), "\n")
+  if(!file.exists(outfile)) {
+    png::writePNG(matrix(1), target = outfile)
+  }
+  
+ # Render a high-quality image of the plot
+render_highquality(
+    filename = outfile,               # Specify the output filename for the high-quality image
+    interactive = FALSE,              # Disable interactivity for the rendered image
+    lightdirection = 55,          # Set the direction of the primary light source (in degrees)
+    lightaltitude = c(30, 80),        # Set the altitude of both lights (in degrees)
+    lightcolor = c("white",'white'),    # Set the color of both lights (custom color and white)
+    lightintensity = c(600, 100),     # Set the intensity of both lights
+    width = 3500,                     # Set the width of the rendered image
+    height = 3500,                    # Set the height of the rendered image
+    samples = 256                     # Set the number of samples for anti-aliasing #250
+)
+
+  
+  end_time <- Sys.time()
+  diff <- end_time - start_time
+  cat(crayon::cyan(diff), "\n")
+}
+```
+
+\newpage
+
+#### **11. Annotate the image**
+
+You can add names and more details about your generated visualization.
+
+```{r}
+library(showtext)
+library(extrafont)
+
+pop_raster <- image_read("KH_final_4.png")
+
+text_color <- "#003C84"
+swatchplot(text_color)
+
+
+# Automatically enable font support
+showtext_auto()
+
+# Download and register the Philosopher font from Google Fonts
+font_add_google("Philosopher", regular = "400", bold = "700")
+
+pop_raster %>%
+  image_annotate("Cambodia",
+                 gravity = "northeast",
+                 location = "+50+50",
+                 color = text_color,
+                 size = 300,
+                 font = "Philosopher",
+                 weight = 700,
+
+  ) %>%
+  image_annotate("POPULATION DENSITY MAP",
+                 gravity = "northeast",
+                 location = "+50+340",
+                 color = text_color,
+                 size = 100,
+                 font = "Philosopher",  # Corrected font name
+                 weight = 500,
+
+  ) %>%
+  image_annotate("Visualization by: Babac, Gier, Laspoña, Mugot \nData: Kontur Population 2023",
+                 gravity = "southwest",
+                 location = "+20+20",
+                 color = alpha(text_color, .8),
+                 font = "Philosopher",  # Corrected font name
+                 size = 65,
+
+  ) %>%
+  image_write("Plots/Annotated_plot_KH.png", format = "png", quality = 100)
+```
+
+## **Detailed Analysis Report: 3D Population Density Visualization of Cambodia**
+
+**Introduction**:
+
+In this comprehensive analysis, we delve into the creation and
+interpretation of a 3D visualization representing the population density
+across Cambodia. By leveraging spatial data and advanced visualization
+techniques, we aim to provide in-depth insights into population
+distribution patterns across different regions of the country.
+
+**Methodology**: Data Acquisition and Preparation
+
+Spatial data for Cambodia, including population data and administrative
+boundary information, was sourced from GeoPackage files. The data
+underwent preprocessing, including transformation to a specific
+Coordinate Reference System (CRS) and extraction of relevant attributes
+such as population and administrative region names.
+
+**Visualization Techniques:**
+
+The worked utilized the ***rayshader*** package in R, a powerful tool
+for creating 3D visualizations, to generate a plot of the population
+density. The visualization involved the conversion of spatial polygons
+to raster format, followed by the application of height shading to
+enhance visual depth.
+
+**Color Mapping and Representation:**
+
+A color palette from the ***MetBrewer*** library was selected to
+represent population density gradients. The color palette provided a
+visually appealing representation of population density variations, with
+distinct colors indicating different population levels.
+
+### **Results**:
+
+The 3D visualization effectively portrays variations in population
+density across Cambodia. Areas with higher population density are
+depicted as elevated terrain, while areas with lower population density
+appear as flat terrain.
+
+In identifying high density areas, **Phnom Penh** emerges prominently as
+the area with the highest population density. This is consistent with
+its status as the capital city and economic center of Cambodia.
+Provinces such as [***Kampong Cham, Kandal, Siem Reap***]{.underline},
+and [***Battambang***]{.underline} also exhibit significant population
+density, albeit lower than Phnom Penh.
+
+**Discussion**:
+
+Phnom Penh.
+
+As the capital city, Phnom Penh serves as the political, economic, and
+cultural hub of Cambodia. The high population density can be attributed
+to factors such as employment opportunities, educational institutions,
+healthcare facilities, and infrastructure development. Kampong Cham,
+Kandal, Siem Reap, and Battambang:
+
+These provinces represent some of the most populous regions in Cambodia
+after Phnom Penh. Kampong Cham and Kandal benefit from their proximity
+to Phnom Penh, contributing to their relatively high population density.
+Siem Reap, renowned for the Angkor Wat temple complex, attracts tourists
+and residents alike, driving population growth. Battambang, located in
+the northwest region, serves as an agricultural and commercial center,
+supporting population growth and urban development.
+
+**Conclusion:**
+
+The detailed analysis of the 3D population density visualization
+provides valuable insights into regional demographic patterns in
+Cambodia. By identifying areas of high population density such as Phnom
+Penh, Kampong Cham, Kandal, Siem Reap, and Battambang, stakeholders can
+make informed decisions regarding urban planning, infrastructure
+development, resource allocation, and socioeconomic policies. This
+analysis underscores the significance of spatial data visualization
+techniques in understanding population dynamics and facilitating
+evidence-based decision-making for sustainable development and inclusive
+growth.
+
+End.
