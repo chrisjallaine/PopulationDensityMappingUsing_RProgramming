@@ -47,4 +47,4 @@ To run the code in this repository, follow these steps:
 
 1. **Clone this repository**:
    ```bash
-   git clone https://github.com/your-username/PopulationDensityMappingUsing_RProgramming.git
+   git clone https://github.com/chrisjallaine/PopulationDensityMappingUsing_RProgramming.git
